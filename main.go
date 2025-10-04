@@ -11,13 +11,18 @@ import (
 	"gorm.io/gorm"
 )
 
+// Repository is a struct that holds a pointer to a gorm.DB instance.
+// This is used to interact with the database.
 type Repository struct {
 	DB *gorm.DB
 }
 
+// CreateBook is a handler function that creates a new book in the database.
+// It expects a JSON body with the book details.
 func (r *Repository) CreateBook(context *fiber.Ctx) error {
 	book := &models.Book{}
 
+	// Parse the request body into the book struct
 	err := context.BodyParser(&book)
 	if err != nil {
 		return context.Status(http.StatusUnprocessableEntity).JSON(&fiber.Map{
@@ -25,6 +30,7 @@ func (r *Repository) CreateBook(context *fiber.Ctx) error {
 		})
 	}
 
+	// Create the book in the database
 	result := r.DB.Create(&book)
 	if result.Error != nil {
 		return context.Status(http.StatusBadRequest).JSON(&fiber.Map{
@@ -32,6 +38,7 @@ func (r *Repository) CreateBook(context *fiber.Ctx) error {
 		})
 	}
 
+	// Return a success message with the created book
 	return context.Status(http.StatusOK).JSON(
 		&fiber.Map{
 			"message": "Book created successfully",
@@ -40,9 +47,11 @@ func (r *Repository) CreateBook(context *fiber.Ctx) error {
 	)
 }
 
+// GetAllBooks is a handler function that retrieves all books from the database.
 func (r *Repository) GetAllBooks(context *fiber.Ctx) error {
 	bookModels := &[]models.Book{}
 
+	// Find all books in the database
 	err := r.DB.Find(bookModels).Error
 	if err != nil {
 		return context.Status(http.StatusBadRequest).JSON(&fiber.Map{
@@ -50,9 +59,11 @@ func (r *Repository) GetAllBooks(context *fiber.Ctx) error {
 		})
 	}
 
+	// Return a success message with the list of books
 	return context.Status(http.StatusOK).JSON(&fiber.Map{"message": "Books fetched successfully", "books": bookModels})
 }
 
+// DeleteBook is a handler function that deletes a book from the database by its ID.
 func (r *Repository) DeleteBook(context *fiber.Ctx) error {
 	id := context.Params("id")
 
@@ -64,6 +75,7 @@ func (r *Repository) DeleteBook(context *fiber.Ctx) error {
 
 	bookModel := &models.Book{}
 
+	// Delete the book from the database
 	err := r.DB.Delete(bookModel, id).Error
 	if err != nil {
 		return context.Status(http.StatusBadRequest).JSON(&fiber.Map{
@@ -71,11 +83,13 @@ func (r *Repository) DeleteBook(context *fiber.Ctx) error {
 		})
 	}
 
+	// Return a success message
 	return context.Status(http.StatusOK).JSON(&fiber.Map{
 		"message": "Book deleted successfully",
 	})
 }
 
+// GetBookByID is a handler function that retrieves a single book from the database by its ID.
 func (r *Repository) GetBookByID(context *fiber.Ctx) error {
 	id := context.Params("id")
 
@@ -87,6 +101,7 @@ func (r *Repository) GetBookByID(context *fiber.Ctx) error {
 
 	bookModel := &models.Book{}
 
+	// Find the book in the database by its ID
 	err := r.DB.Where("id=?", id).First(bookModel).Error
 	if err != nil {
 		return context.Status(http.StatusBadRequest).JSON(&fiber.Map{
@@ -94,12 +109,14 @@ func (r *Repository) GetBookByID(context *fiber.Ctx) error {
 		})
 	}
 
+	// Return a success message with the book details
 	return context.Status(http.StatusOK).JSON(&fiber.Map{
 		"message": "Book fetched successfully",
 		"book":    bookModel,
 	})
 }
 
+// SetupRoutes defines the API routes for the application.
 func (r *Repository) SetupRoutes(app *fiber.App) {
 	api := app.Group("/api")
 	api.Post("/create_books", r.CreateBook)
@@ -110,11 +127,14 @@ func (r *Repository) SetupRoutes(app *fiber.App) {
 
 // var db *gorm.DB
 
+// main is the entry point of the application.
 func main() {
+	// Load environment variables from .env file
 	err := godotenv.Load(".env")
 	if err != nil {
 		panic(err)
 	}
+	// Create a new database configuration from environment variables
 	config := &storage.Config{
 		Host:     os.Getenv("DB_HOST"),
 		Port:     os.Getenv("DB_PORT"),
@@ -124,23 +144,29 @@ func main() {
 		SSLMode:  os.Getenv("DB_SSLMODE"),
 	}
 
+	// Establish a new database connection
 	db, err := storage.NewConnection(config)
 
 	if err != nil {
 		panic(err)
 	}
 
+	// Migrate the Book model to the database
 	err = models.MigrateBooks(db)
 	if err != nil {
 		panic(err)
 	}
 
+	// Create a new repository with the database connection
 	r := Repository{
 		DB: db,
 	}
+	// Create a new Fiber application
 	app := fiber.New()
+	// Setup the API routes
 	r.SetupRoutes(app)
 
+	// Start the Fiber application on port 3000
 	app.Listen(":3000")
 
 }
